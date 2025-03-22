@@ -1,0 +1,33 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>YouTube MP3 下載器</title>
+    <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+    <div class="container">
+        <h1>YouTube MP3 下載器</h1>
+        <div class="form-container">
+            <div class="input-group">
+                <label for="url">YouTube 影片網址：</label>
+                <input type="text" id="url" placeholder="請輸入 YouTube 影片網址">
+            </div>
+            <div class="input-group">
+                <label for="start_time">開始時間 (HH:MM:SS)：</label>
+                <input type="text" id="start_time" placeholder="00:00:00">
+            </div>
+            <div class="input-group">
+                <label for="end_time">結束時間 (HH:MM:SS)：</label>
+                <input type="text" id="end_time" placeholder="00:00:00">
+            </div>
+            <button id="downloadBtn" class="download-btn">下載 MP3</button>
+        </div>
+        <div id="status" class="status"></div>
+        <div id="video-info" class="video-info"></div>
+    </div>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/axios/1.6.7/axios.min.js"></script>
+    <script src="script.js"></script>
+</body>
+</html> 
