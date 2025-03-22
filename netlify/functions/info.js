@@ -1,5 +1,4 @@
 const ytdl = require('ytdl-core');
-const https = require('https');
 
 exports.handler = async function(event, context) {
   // 添加 CORS 標頭
@@ -8,23 +7,6 @@ exports.handler = async function(event, context) {
     'Access-Control-Allow-Headers': 'Content-Type',
     'Access-Control-Allow-Methods': 'POST, OPTIONS'
   };
-
-  // 基本連接測試
-  async function testYouTubeConnection() {
-    return new Promise((resolve, reject) => {
-      https.get('https://www.youtube.com', {
-        headers: {
-          'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36'
-        }
-      }, (res) => {
-        console.log('YouTube 響應狀態碼:', res.statusCode);
-        resolve(res.statusCode === 200);
-      }).on('error', (err) => {
-        console.error('連接測試錯誤:', err);
-        reject(err);
-      });
-    });
-  }
 
   // 處理 OPTIONS 請求
   if (event.httpMethod === 'OPTIONS') {
@@ -36,72 +18,41 @@ exports.handler = async function(event, context) {
   }
 
   try {
-    // 先測試連接
-    console.log('開始測試 YouTube 連接...');
-    const canAccessYouTube = await testYouTubeConnection();
-    console.log('YouTube 連接測試結果:', canAccessYouTube);
-
-    if (!canAccessYouTube) {
-      throw new Error('無法連接到 YouTube');
-    }
-
     if (event.httpMethod !== 'POST') {
-      return {
-        statusCode: 405,
-        headers,
-        body: JSON.stringify({ error: '只允許 POST 請求' })
-      };
+      throw new Error('只允許 POST 請求');
     }
 
-    console.log('接收到的請求體:', event.body);
     const { url } = JSON.parse(event.body);
-
+    
     if (!url) {
-      return {
-        statusCode: 400,
-        headers,
-        body: JSON.stringify({ error: '未提供 URL' })
-      };
+      throw new Error('未提供 URL');
     }
-
-    console.log('處理 URL:', url);
 
     // 驗證 YouTube URL
     if (!ytdl.validateURL(url)) {
-      return {
-        statusCode: 400,
-        headers,
-        body: JSON.stringify({ error: '無效的 YouTube URL' })
-      };
+      throw new Error('無效的 YouTube URL');
     }
 
-    console.log('開始獲取影片信息');
-    // 獲取影片信息
-    const info = await ytdl.getInfo(url, {
+    // 使用基本選項獲取影片信息
+    const info = await ytdl.getBasicInfo(url, {
       requestOptions: {
         headers: {
-          'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36'
+          'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36',
+          'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,image/webp,*/*;q=0.8',
+          'Accept-Language': 'en-US,en;q=0.5'
         }
       }
     });
-    console.log('成功獲取影片信息');
-    
+
     const videoDetails = info.videoDetails;
-    console.log('影片標題:', videoDetails.title);
-
-    // 轉換時長為 HH:MM:SS 格式
-    const duration = new Date(videoDetails.lengthSeconds * 1000)
-      .toISOString()
-      .substr(11, 8);
-
+    
+    // 構建基本響應
     const response = {
-      title: videoDetails.title,
-      duration: duration,
-      thumbnail: videoDetails.thumbnails[0].url,
-      connectionTest: 'success'
+      title: videoDetails.title || '未知標題',
+      duration: new Date(parseInt(videoDetails.lengthSeconds) * 1000).toISOString().substr(11, 8),
+      thumbnail: videoDetails.thumbnails?.[0]?.url || '',
+      author: videoDetails.author?.name || '未知作者'
     };
-
-    console.log('返回的數據:', response);
 
     return {
       statusCode: 200,
@@ -110,14 +61,13 @@ exports.handler = async function(event, context) {
     };
 
   } catch (error) {
-    console.error('詳細錯誤信息:', error);
+    console.error('Error:', error);
     return {
       statusCode: 500,
       headers,
-      body: JSON.stringify({ 
+      body: JSON.stringify({
         error: '處理請求時發生錯誤',
-        details: error.message,
-        connectionTest: 'failed'
+        message: error.message
       })
     };
   }
