@@ -9,6 +9,30 @@ document.addEventListener('DOMContentLoaded', () => {
 
     let videoInfo = null;
 
+    // 將秒數轉換為 MM:SS 格式
+    function formatTime(seconds) {
+        const minutes = Math.floor(seconds / 60);
+        const remainingSeconds = Math.floor(seconds % 60);
+        return `${minutes.toString().padStart(2, '0')}:${remainingSeconds.toString().padStart(2, '0')}`;
+    }
+
+    // 將時間字符串（例如 "00:02:51"）轉換為 "MM:SS" 格式
+    function convertDurationToMMSS(duration) {
+        const parts = duration.split(':').map(Number);
+        let totalSeconds;
+        if (parts.length === 3) {
+            // 處理 HH:MM:SS 格式
+            totalSeconds = parts[0] * 3600 + parts[1] * 60 + parts[2];
+        } else if (parts.length === 2) {
+            // 處理 MM:SS 格式
+            totalSeconds = parts[0] * 60 + parts[1];
+        } else {
+            // 處理純秒數
+            totalSeconds = parseInt(duration);
+        }
+        return formatTime(totalSeconds);
+    }
+
     // 顯示狀態訊息
     function showStatus(message, isError = false) {
         statusDiv.textContent = message;
@@ -59,9 +83,15 @@ document.addEventListener('DOMContentLoaded', () => {
 
         const startSeconds = timeToSeconds(startTime);
         const endSeconds = timeToSeconds(endTime);
+        const totalSeconds = timeToSeconds(videoInfo.duration);
 
         if (startSeconds >= endSeconds) {
             statusDiv.textContent = '結束時間必須大於開始時間';
+            return false;
+        }
+
+        if (endSeconds > totalSeconds) {
+            statusDiv.textContent = '結束時間不能超過影片長度';
             return false;
         }
 
@@ -111,6 +141,10 @@ document.addEventListener('DOMContentLoaded', () => {
                 </div>
             `;
 
+            // 設置預設時間範圍
+            startTimeInput.value = '00:00';
+            endTimeInput.value = convertDurationToMMSS(data.duration);
+
             // 顯示時間範圍選擇
             timeRangeContainer.classList.add('visible');
             showStatus('');
@@ -134,8 +168,8 @@ document.addEventListener('DOMContentLoaded', () => {
 
             const downloadData = {
                 url: urlInput.value,
-                startTime: startTimeInput.value || '00:00',
-                endTime: endTimeInput.value || videoInfo.duration
+                startTime: startTimeInput.value,
+                endTime: endTimeInput.value
             };
 
             console.log('發送下載請求:', downloadData);
