@@ -4,9 +4,11 @@
   "description": "YouTube MP3 下載器網頁應用",
   "main": "index.js",
   "scripts": {
-    "build": "npm install"
+    "build": "echo 'No build required'"
   },
-  "dependencies": {},
+  "dependencies": {
+    "node-fetch": "^2.6.1"
+  },
   "engines": {
     "node": ">=16.0.0"
   }
