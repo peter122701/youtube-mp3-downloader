@@ -18,6 +18,11 @@ document.addEventListener('DOMContentLoaded', () => {
 
     // 將時間字符串（例如 "00:02:51"）轉換為 "MM:SS" 格式
     function convertDurationToMMSS(duration) {
+        // 如果已經是 MM:SS 格式，直接返回
+        if (/^\d{2}:\d{2}$/.test(duration)) {
+            return duration;
+        }
+
         const parts = duration.split(':').map(Number);
         let totalSeconds;
         if (parts.length === 3) {
@@ -83,7 +88,12 @@ document.addEventListener('DOMContentLoaded', () => {
 
         const startSeconds = timeToSeconds(startTime);
         const endSeconds = timeToSeconds(endTime);
-        const totalSeconds = timeToSeconds(convertDurationToMMSS(videoInfo.duration));
+        
+        // 獲取影片總長度（秒）
+        const durationParts = videoInfo.duration.split(':').map(Number);
+        const totalSeconds = durationParts.length === 3 
+            ? durationParts[0] * 3600 + durationParts[1] * 60 + durationParts[2]
+            : durationParts[0] * 60 + durationParts[1];
 
         console.log('時間驗證:', {
             startTime,
@@ -91,7 +101,8 @@ document.addEventListener('DOMContentLoaded', () => {
             videoDuration: videoInfo.duration,
             startSeconds,
             endSeconds,
-            totalSeconds
+            totalSeconds,
+            durationParts
         });
 
         if (startSeconds >= endSeconds) {
