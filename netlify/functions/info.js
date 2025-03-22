@@ -13,7 +13,11 @@ async function getVideoInfo(videoId, apiKey) {
     const options = {
       hostname: 'www.googleapis.com',
       path: `/youtube/v3/videos?part=snippet,contentDetails&id=${videoId}&key=${apiKey}`,
-      method: 'GET'
+      method: 'GET',
+      headers: {
+        'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36',
+        'Accept': 'application/json'
+      }
     };
 
     const req = https.request(options, (res) => {
@@ -57,11 +61,11 @@ function parseDuration(duration) {
 }
 
 exports.handler = async function(event, context) {
-  // 添加 CORS 標頭
   const headers = {
     'Access-Control-Allow-Origin': '*',
-    'Access-Control-Allow-Headers': 'Content-Type',
-    'Access-Control-Allow-Methods': 'POST, OPTIONS'
+    'Access-Control-Allow-Headers': 'Content-Type, Referer',
+    'Access-Control-Allow-Methods': 'POST, OPTIONS',
+    'Content-Type': 'application/json'
   };
 
   // 處理 OPTIONS 請求
@@ -74,31 +78,21 @@ exports.handler = async function(event, context) {
   }
 
   try {
-    console.log('收到請求:', { 
-      httpMethod: event.httpMethod,
-      body: event.body,
-      headers: event.headers 
-    });
+    // 檢查 referer
+    const referer = event.headers.referer || event.headers.Referer;
+    if (!referer || !referer.includes('peaceful-tarsier-993d6d.netlify.app')) {
+      throw new Error('未授權的請求來源');
+    }
 
     if (event.httpMethod !== 'POST') {
       throw new Error('只允許 POST 請求');
     }
 
-    let parsedBody;
-    try {
-      parsedBody = JSON.parse(event.body);
-      console.log('解析的請求體:', parsedBody);
-    } catch (e) {
-      throw new Error('無效的 JSON 格式: ' + e.message);
-    }
-
-    const { url } = parsedBody;
+    const { url } = JSON.parse(event.body);
     
     if (!url) {
       throw new Error('未提供 URL');
     }
-
-    console.log('處理 URL:', url);
 
     // 提取視頻 ID
     const videoId = extractVideoId(url);
@@ -137,24 +131,13 @@ exports.handler = async function(event, context) {
     };
 
   } catch (error) {
-    console.error('詳細錯誤信息:', {
-      name: error.name,
-      message: error.message,
-      stack: error.stack,
-      code: error.code
-    });
-
-    // 根據錯誤類型返回不同的狀態碼
-    const statusCode = error.message.includes('無效') ? 400 : 500;
-
+    console.error('錯誤詳情:', error);
     return {
-      statusCode,
+      statusCode: error.message.includes('未授權') ? 403 : 500,
       headers,
       body: JSON.stringify({
         error: '處理請求時發生錯誤',
-        message: error.message,
-        type: error.name,
-        code: error.code
+        message: error.message
       })
     };
   }
