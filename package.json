@@ -7,6 +7,6 @@
     "build": "npm install"
   },
   "dependencies": {
-    "ytdl-core": "^4.11.5"
+    "ytdl-core": "^4.9.1"
   }
 } 
