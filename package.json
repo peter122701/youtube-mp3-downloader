@@ -4,7 +4,7 @@
   "description": "YouTube MP3 下載器網頁應用",
   "main": "index.js",
   "scripts": {
-    "test": "echo \"Error: no test specified\" && exit 1"
+    "build": "npm install"
   },
   "dependencies": {
     "ytdl-core": "^4.11.5"

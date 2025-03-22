@@ -8,6 +8,7 @@ document.addEventListener('DOMContentLoaded', () => {
     function showStatus(message, isError = false) {
         statusDiv.textContent = message;
         statusDiv.style.color = isError ? '#e74c3c' : '#2ecc71';
+        console.log(`狀態更新: ${message} (${isError ? '錯誤' : '成功'})`);
     }
 
     // 驗證輸入
@@ -27,6 +28,7 @@ document.addEventListener('DOMContentLoaded', () => {
             showStatus('正在處理您的請求...');
             downloadBtn.disabled = true;
 
+            console.log('發送下載請求:', urlInput.value);
             const response = await fetch('/.netlify/functions/download', {
                 method: 'POST',
                 headers: {
@@ -37,7 +39,13 @@ document.addEventListener('DOMContentLoaded', () => {
                 })
             });
 
+            if (!response.ok) {
+                const errorData = await response.json();
+                throw new Error(errorData.error || `HTTP error! status: ${response.status}`);
+            }
+
             const data = await response.json();
+            console.log('收到的回應:', data);
 
             if (data.error) {
                 throw new Error(data.error);
@@ -57,6 +65,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 throw new Error('無法獲取下載連結');
             }
         } catch (error) {
+            console.error('下載錯誤:', error);
             showStatus(`錯誤：${error.message}`, true);
         } finally {
             downloadBtn.disabled = false;
@@ -64,10 +73,11 @@ document.addEventListener('DOMContentLoaded', () => {
     }
 
     // 當 URL 輸入改變時獲取影片資訊
-    urlInput.addEventListener('blur', async () => {
+    async function getVideoInfo() {
         if (!urlInput.value) return;
 
         try {
+            console.log('獲取影片信息:', urlInput.value);
             const response = await fetch('/.netlify/functions/info', {
                 method: 'POST',
                 headers: {
@@ -78,7 +88,13 @@ document.addEventListener('DOMContentLoaded', () => {
                 })
             });
 
+            if (!response.ok) {
+                const errorData = await response.json();
+                throw new Error(errorData.error || `HTTP error! status: ${response.status}`);
+            }
+
             const data = await response.json();
+            console.log('收到的影片信息:', data);
 
             if (data.error) {
                 throw new Error(data.error);
@@ -91,11 +107,27 @@ document.addEventListener('DOMContentLoaded', () => {
                 <img src="${data.thumbnail}" alt="影片縮圖" style="max-width: 200px;">
             `;
         } catch (error) {
+            console.error('獲取影片信息錯誤:', error);
             videoInfoDiv.innerHTML = '';
-            showStatus('無法獲取影片資訊', true);
+            showStatus(`無法獲取影片資訊: ${error.message}`, true);
         }
-    });
+    }
+
+    // 使用 debounce 函數來限制 API 調用頻率
+    function debounce(func, wait) {
+        let timeout;
+        return function executedFunction(...args) {
+            const later = () => {
+                clearTimeout(timeout);
+                func(...args);
+            };
+            clearTimeout(timeout);
+            timeout = setTimeout(later, wait);
+        };
+    }
 
     // 事件監聽器
+    const debouncedGetVideoInfo = debounce(getVideoInfo, 500);
+    urlInput.addEventListener('input', debouncedGetVideoInfo);
     downloadBtn.addEventListener('click', handleDownload);
 }); 
