@@ -1,4 +1,60 @@
-const ytdl = require('ytdl-core');
+const https = require('https');
+
+// 從 URL 中提取視頻 ID
+function extractVideoId(url) {
+  const regex = /[?&]v=([^&]+)/;
+  const match = url.match(regex);
+  return match ? match[1] : null;
+}
+
+// 調用 YouTube API
+async function getVideoInfo(videoId, apiKey) {
+  return new Promise((resolve, reject) => {
+    const options = {
+      hostname: 'www.googleapis.com',
+      path: `/youtube/v3/videos?part=snippet,contentDetails&id=${videoId}&key=${apiKey}`,
+      method: 'GET'
+    };
+
+    const req = https.request(options, (res) => {
+      let data = '';
+
+      res.on('data', (chunk) => {
+        data += chunk;
+      });
+
+      res.on('end', () => {
+        try {
+          const response = JSON.parse(data);
+          if (response.error) {
+            reject(new Error(response.error.message));
+          } else if (!response.items || response.items.length === 0) {
+            reject(new Error('找不到影片'));
+          } else {
+            resolve(response);
+          }
+        } catch (error) {
+          reject(error);
+        }
+      });
+    });
+
+    req.on('error', (error) => {
+      reject(error);
+    });
+
+    req.end();
+  });
+}
+
+// 將 ISO 8601 時長轉換為秒數
+function parseDuration(duration) {
+  const matches = duration.match(/PT(?:(\d+)H)?(?:(\d+)M)?(?:(\d+)S)?/);
+  const hours = parseInt(matches[1] || 0);
+  const minutes = parseInt(matches[2] || 0);
+  const seconds = parseInt(matches[3] || 0);
+  return hours * 3600 + minutes * 60 + seconds;
+}
 
 exports.handler = async function(event, context) {
   // 添加 CORS 標頭
@@ -44,34 +100,32 @@ exports.handler = async function(event, context) {
 
     console.log('處理 URL:', url);
 
-    // 驗證 YouTube URL
-    if (!ytdl.validateURL(url)) {
+    // 提取視頻 ID
+    const videoId = extractVideoId(url);
+    if (!videoId) {
       throw new Error('無效的 YouTube URL');
+    }
+
+    // 從環境變量獲取 API 密鑰
+    const apiKey = process.env.YOUTUBE_API_KEY;
+    if (!apiKey) {
+      throw new Error('未設置 YouTube API 密鑰');
     }
 
     console.log('開始獲取影片信息...');
 
-    // 使用基本選項獲取影片信息
-    const info = await ytdl.getBasicInfo(url, {
-      requestOptions: {
-        headers: {
-          'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36',
-          'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,image/webp,*/*;q=0.8',
-          'Accept-Language': 'en-US,en;q=0.5'
-        }
-      }
-    });
+    // 獲取影片信息
+    const youtubeResponse = await getVideoInfo(videoId, apiKey);
+    const videoData = youtubeResponse.items[0];
 
     console.log('成功獲取影片信息');
 
-    const videoDetails = info.videoDetails;
-    
-    // 構建基本響應
+    // 構建響應
     const response = {
-      title: videoDetails.title || '未知標題',
-      duration: new Date(parseInt(videoDetails.lengthSeconds) * 1000).toISOString().substr(11, 8),
-      thumbnail: videoDetails.thumbnails?.[0]?.url || '',
-      author: videoDetails.author?.name || '未知作者'
+      title: videoData.snippet.title,
+      duration: new Date(parseDuration(videoData.contentDetails.duration) * 1000).toISOString().substr(11, 8),
+      thumbnail: videoData.snippet.thumbnails.default.url,
+      author: videoData.snippet.channelTitle
     };
 
     console.log('準備返回的響應:', response);
