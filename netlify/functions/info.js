@@ -1,3 +1,4 @@
+const ytdl = require('ytdl-core');
 const https = require('https');
 
 // 從 URL 中提取視頻 ID
@@ -60,6 +61,24 @@ function parseDuration(duration) {
   return hours * 3600 + minutes * 60 + seconds;
 }
 
+// 測試 YouTube 連接
+async function testYouTubeConnection() {
+    return new Promise((resolve, reject) => {
+        console.log('開始測試 YouTube 連接...');
+        https.get('https://www.youtube.com', (res) => {
+            console.log('YouTube 響應狀態碼:', res.statusCode);
+            console.log('YouTube 響應頭:', res.headers);
+            resolve({
+                statusCode: res.statusCode,
+                headers: res.headers
+            });
+        }).on('error', (err) => {
+            console.error('YouTube 連接錯誤:', err);
+            reject(err);
+        });
+    });
+}
+
 exports.handler = async function(event, context) {
   const headers = {
     'Access-Control-Allow-Origin': '*',
@@ -78,6 +97,11 @@ exports.handler = async function(event, context) {
   }
 
   try {
+    // 首先測試 YouTube 連接
+    console.log('正在測試 YouTube 連接...');
+    const youtubeTest = await testYouTubeConnection();
+    console.log('YouTube 連接測試結果:', youtubeTest);
+
     // 檢查 referer
     const referer = event.headers.referer || event.headers.Referer;
     if (!referer || !referer.includes('peaceful-tarsier-993d6d.netlify.app')) {
@@ -94,50 +118,41 @@ exports.handler = async function(event, context) {
       throw new Error('未提供 URL');
     }
 
-    // 提取視頻 ID
-    const videoId = extractVideoId(url);
-    if (!videoId) {
+    if (!ytdl.validateURL(url)) {
       throw new Error('無效的 YouTube URL');
     }
 
-    // 從環境變量獲取 API 密鑰
-    const apiKey = process.env.YOUTUBE_API_KEY;
-    if (!apiKey) {
-      throw new Error('未設置 YouTube API 密鑰');
-    }
-
-    console.log('開始獲取影片信息...');
-
     // 獲取影片信息
-    const youtubeResponse = await getVideoInfo(videoId, apiKey);
-    const videoData = youtubeResponse.items[0];
-
-    console.log('成功獲取影片信息');
-
-    // 構建響應
-    const response = {
-      title: videoData.snippet.title,
-      duration: new Date(parseDuration(videoData.contentDetails.duration) * 1000).toISOString().substr(11, 8),
-      thumbnail: videoData.snippet.thumbnails.default.url,
-      author: videoData.snippet.channelTitle
-    };
-
-    console.log('準備返回的響應:', response);
+    const info = await ytdl.getInfo(url, {
+      requestOptions: {
+        headers: {
+          'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36',
+          'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,image/webp,*/*;q=0.8',
+          'Accept-Language': 'en-US,en;q=0.5'
+        }
+      }
+    });
 
     return {
       statusCode: 200,
       headers,
-      body: JSON.stringify(response)
+      body: JSON.stringify({
+        title: info.videoDetails.title,
+        thumbnail: info.videoDetails.thumbnails[0].url,
+        duration: info.videoDetails.lengthSeconds,
+        author: info.videoDetails.author.name
+      })
     };
 
   } catch (error) {
-    console.error('錯誤詳情:', error);
+    console.error('處理請求時發生錯誤:', error);
     return {
       statusCode: error.message.includes('未授權') ? 403 : 500,
       headers,
       body: JSON.stringify({
         error: '處理請求時發生錯誤',
-        message: error.message
+        message: error.message,
+        stack: error.stack
       })
     };
   }
