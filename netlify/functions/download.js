@@ -1,9 +1,26 @@
 const ytdl = require('ytdl-core');
 
 exports.handler = async function(event, context) {
+  // 添加 CORS 標頭
+  const headers = {
+    'Access-Control-Allow-Origin': '*',
+    'Access-Control-Allow-Headers': 'Content-Type',
+    'Access-Control-Allow-Methods': 'POST, OPTIONS'
+  };
+
+  // 處理 OPTIONS 請求
+  if (event.httpMethod === 'OPTIONS') {
+    return {
+      statusCode: 200,
+      headers,
+      body: ''
+    };
+  }
+
   if (event.httpMethod !== 'POST') {
     return {
       statusCode: 405,
+      headers,
       body: JSON.stringify({ error: '只允許 POST 請求' })
     };
   }
@@ -15,6 +32,7 @@ exports.handler = async function(event, context) {
     if (!ytdl.validateURL(url)) {
       return {
         statusCode: 400,
+        headers,
         body: JSON.stringify({ error: '無效的 YouTube URL' })
       };
     }
@@ -28,6 +46,7 @@ exports.handler = async function(event, context) {
 
     return {
       statusCode: 200,
+      headers,
       body: JSON.stringify({
         downloadUrl: audioUrl,
         title: info.videoDetails.title,
@@ -39,6 +58,7 @@ exports.handler = async function(event, context) {
     console.error('Error:', error);
     return {
       statusCode: 500,
+      headers,
       body: JSON.stringify({ error: '處理請求時發生錯誤' })
     };
   }
