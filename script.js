@@ -1,18 +1,8 @@
 document.addEventListener('DOMContentLoaded', () => {
     const urlInput = document.getElementById('url');
-    const startTimeInput = document.getElementById('start_time');
-    const endTimeInput = document.getElementById('end_time');
     const downloadBtn = document.getElementById('downloadBtn');
     const statusDiv = document.getElementById('status');
     const videoInfoDiv = document.getElementById('video-info');
-
-    // YouTube API endpoint
-    const API_ENDPOINT = 'https://your-serverless-function-url.netlify.app/.netlify/functions/download';
-
-    // 驗證時間格式
-    function isValidTimeFormat(time) {
-        return /^([0-9]{2}):([0-9]{2}):([0-9]{2})$/.test(time);
-    }
 
     // 顯示狀態訊息
     function showStatus(message, isError = false) {
@@ -26,12 +16,6 @@ document.addEventListener('DOMContentLoaded', () => {
             showStatus('請輸入 YouTube 影片網址', true);
             return false;
         }
-
-        if (!isValidTimeFormat(startTimeInput.value) || !isValidTimeFormat(endTimeInput.value)) {
-            showStatus('請輸入正確的時間格式 (HH:MM:SS)', true);
-            return false;
-        }
-
         return true;
     }
 
@@ -43,17 +27,34 @@ document.addEventListener('DOMContentLoaded', () => {
             showStatus('正在處理您的請求...');
             downloadBtn.disabled = true;
 
-            const response = await axios.post(API_ENDPOINT, {
-                url: urlInput.value,
-                startTime: startTimeInput.value,
-                endTime: endTimeInput.value
+            const response = await fetch('/.netlify/functions/download', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                },
+                body: JSON.stringify({
+                    url: urlInput.value
+                })
             });
 
-            if (response.data.downloadUrl) {
-                window.location.href = response.data.downloadUrl;
+            const data = await response.json();
+
+            if (data.error) {
+                throw new Error(data.error);
+            }
+
+            if (data.downloadUrl) {
+                // 創建一個隱藏的下載連結
+                const downloadLink = document.createElement('a');
+                downloadLink.href = data.downloadUrl;
+                downloadLink.download = `${data.title}.${data.format}`;
+                document.body.appendChild(downloadLink);
+                downloadLink.click();
+                document.body.removeChild(downloadLink);
+                
                 showStatus('下載開始！');
             } else {
-                throw new Error('下載連結無效');
+                throw new Error('無法獲取下載連結');
             }
         } catch (error) {
             showStatus(`錯誤：${error.message}`, true);
@@ -62,30 +63,39 @@ document.addEventListener('DOMContentLoaded', () => {
         }
     }
 
-    // 事件監聽器
-    downloadBtn.addEventListener('click', handleDownload);
-
     // 當 URL 輸入改變時獲取影片資訊
     urlInput.addEventListener('blur', async () => {
         if (!urlInput.value) return;
 
         try {
-            const response = await axios.post(`${API_ENDPOINT}/info`, {
-                url: urlInput.value
+            const response = await fetch('/.netlify/functions/info', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                },
+                body: JSON.stringify({
+                    url: urlInput.value
+                })
             });
 
-            const { title, duration } = response.data;
+            const data = await response.json();
+
+            if (data.error) {
+                throw new Error(data.error);
+            }
+
             videoInfoDiv.innerHTML = `
                 <h3>影片資訊：</h3>
-                <p>標題：${title}</p>
-                <p>時長：${duration}</p>
+                <p>標題：${data.title}</p>
+                <p>時長：${data.duration}</p>
+                <img src="${data.thumbnail}" alt="影片縮圖" style="max-width: 200px;">
             `;
-
-            startTimeInput.value = '00:00:00';
-            endTimeInput.value = duration;
         } catch (error) {
             videoInfoDiv.innerHTML = '';
             showStatus('無法獲取影片資訊', true);
         }
     });
+
+    // 事件監聽器
+    downloadBtn.addEventListener('click', handleDownload);
 }); 
