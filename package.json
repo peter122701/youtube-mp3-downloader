@@ -1,0 +1,14 @@
+{
+  "name": "youtube-mp3-downloader",
+  "version": "1.0.0",
+  "description": "YouTube MP3 下載器網頁應用",
+  "main": "index.js",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "dependencies": {
+    "ytdl-core": "^4.11.5",
+    "fluent-ffmpeg": "^2.1.2",
+    "@google-cloud/storage": "^7.7.0"
+  }
+} 
