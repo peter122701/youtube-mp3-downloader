@@ -17,49 +17,53 @@ exports.handler = async function(event, context) {
     };
   }
 
-  if (event.httpMethod !== 'POST') {
-    return {
-      statusCode: 405,
-      headers,
-      body: JSON.stringify({ error: '只允許 POST 請求' })
-    };
-  }
-
   try {
-    const { url } = JSON.parse(event.body);
+    if (event.httpMethod !== 'POST') {
+      throw new Error('只允許 POST 請求');
+    }
 
-    // 驗證 YouTube URL
+    const { url } = JSON.parse(event.body);
+    
+    if (!url) {
+      throw new Error('未提供 URL');
+    }
+
     if (!ytdl.validateURL(url)) {
-      return {
-        statusCode: 400,
-        headers,
-        body: JSON.stringify({ error: '無效的 YouTube URL' })
-      };
+      throw new Error('無效的 YouTube URL');
     }
 
     // 獲取影片信息
     const info = await ytdl.getInfo(url);
-    const format = ytdl.chooseFormat(info.formats, { quality: 'highestaudio' });
+    
+    // 選擇最佳音訊格式
+    const format = ytdl.chooseFormat(info.formats, { 
+      quality: 'highestaudio',
+      filter: 'audioonly' 
+    });
 
-    // 獲取音訊直接下載連結
-    const audioUrl = format.url;
+    if (!format) {
+      throw new Error('無法找到合適的音訊格式');
+    }
 
     return {
       statusCode: 200,
       headers,
       body: JSON.stringify({
-        downloadUrl: audioUrl,
+        downloadUrl: format.url,
         title: info.videoDetails.title,
-        format: format.container
+        format: 'mp3'
       })
     };
 
   } catch (error) {
-    console.error('Error:', error);
+    console.error('下載錯誤:', error);
     return {
       statusCode: 500,
       headers,
-      body: JSON.stringify({ error: '處理請求時發生錯誤' })
+      body: JSON.stringify({
+        error: '處理請求時發生錯誤',
+        message: error.message
+      })
     };
   }
 }; 
