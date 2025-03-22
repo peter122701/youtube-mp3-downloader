@@ -29,7 +29,7 @@ exports.handler = async function(event, context) {
       throw new Error('只允許 POST 請求');
     }
 
-    const { url } = JSON.parse(event.body);
+    const { url, startTime, endTime } = JSON.parse(event.body);
     
     if (!url) {
       throw new Error('未提供 URL');
@@ -38,6 +38,16 @@ exports.handler = async function(event, context) {
     if (!ytdl.validateURL(url)) {
       throw new Error('無效的 YouTube URL');
     }
+
+    // 將時間格式轉換為秒數
+    function timeToSeconds(time) {
+      if (!time) return 0;
+      const [minutes, seconds] = time.split(':').map(Number);
+      return minutes * 60 + seconds;
+    }
+
+    const startSeconds = timeToSeconds(startTime);
+    const endSeconds = timeToSeconds(endTime);
 
     // 獲取影片信息
     const info = await ytdl.getInfo(url, {
@@ -60,11 +70,23 @@ exports.handler = async function(event, context) {
       throw new Error('無法找到合適的音訊格式');
     }
 
+    // 添加時間範圍參數到下載 URL
+    let downloadUrl = format.url;
+    if (startSeconds > 0 || endSeconds > 0) {
+      const separator = downloadUrl.includes('?') ? '&' : '?';
+      if (startSeconds > 0) {
+        downloadUrl += `${separator}begin=${startSeconds}`;
+      }
+      if (endSeconds > 0) {
+        downloadUrl += `&end=${endSeconds}`;
+      }
+    }
+
     return {
       statusCode: 200,
       headers,
       body: JSON.stringify({
-        downloadUrl: format.url,
+        downloadUrl,
         title: info.videoDetails.title,
         format: 'mp3'
       })

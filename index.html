@@ -26,7 +26,19 @@
         .input-group {
             margin-bottom: 20px;
         }
-        input[type="text"] {
+        .time-range {
+            display: flex;
+            gap: 20px;
+            align-items: center;
+            margin-bottom: 20px;
+        }
+        .time-input {
+            flex: 1;
+            padding: 8px;
+            border: 1px solid #ddd;
+            border-radius: 4px;
+        }
+        input[type="text"], input[type="time"] {
             width: 100%;
             padding: 12px;
             border: 1px solid #ddd;
@@ -56,9 +68,33 @@
             text-align: center;
             margin: 10px 0;
             min-height: 20px;
+            color: #e74c3c;
         }
         #video-info {
             margin-top: 20px;
+        }
+        .video-info-container {
+            display: flex;
+            gap: 20px;
+            background-color: #f8f9fa;
+            padding: 15px;
+            border-radius: 8px;
+            margin-top: 20px;
+        }
+        .video-thumbnail {
+            width: 200px;
+            border-radius: 4px;
+        }
+        .video-details {
+            flex: 1;
+        }
+        .video-details h3 {
+            margin: 0 0 10px 0;
+            color: #1a73e8;
+        }
+        .video-details p {
+            margin: 5px 0;
+            color: #5f6368;
         }
         .note {
             font-size: 14px;
@@ -66,6 +102,21 @@
             text-align: center;
             margin-top: 20px;
             font-style: italic;
+        }
+        .time-range-container {
+            display: none;
+            margin-top: 20px;
+            padding: 15px;
+            background-color: #f8f9fa;
+            border-radius: 8px;
+        }
+        .time-range-container.visible {
+            display: block;
+        }
+        label {
+            display: block;
+            margin-bottom: 5px;
+            color: #5f6368;
         }
     </style>
 </head>
@@ -76,10 +127,22 @@
             <label for="url">YouTube 影片網址：</label>
             <input type="text" id="url" placeholder="請輸入 YouTube 影片網址">
         </div>
+        <div id="video-info"></div>
+        <div id="time-range-container" class="time-range-container">
+            <div class="time-range">
+                <div class="input-group">
+                    <label for="startTime">開始時間：</label>
+                    <input type="text" id="startTime" placeholder="00:00" pattern="[0-9]{2}:[0-9]{2}">
+                </div>
+                <div class="input-group">
+                    <label for="endTime">結束時間：</label>
+                    <input type="text" id="endTime" placeholder="00:00" pattern="[0-9]{2}:[0-9]{2}">
+                </div>
+            </div>
+        </div>
         <button id="downloadBtn">下載音訊</button>
         <div id="status"></div>
-        <div id="video-info"></div>
-        <p class="note">注意：本工具僅供個人使用，請尊重著作權權</p>
+        <p class="note">注意：本工具僅供個人使用，請尊重著作權</p>
     </div>
     <script src="script.js"></script>
 </body>

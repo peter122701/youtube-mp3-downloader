@@ -3,6 +3,11 @@ document.addEventListener('DOMContentLoaded', () => {
     const downloadBtn = document.getElementById('downloadBtn');
     const statusDiv = document.getElementById('status');
     const videoInfoDiv = document.getElementById('video-info');
+    const timeRangeContainer = document.getElementById('time-range-container');
+    const startTimeInput = document.getElementById('startTime');
+    const endTimeInput = document.getElementById('endTime');
+
+    let videoInfo = null;
 
     // 顯示狀態訊息
     function showStatus(message, isError = false) {
@@ -30,56 +35,37 @@ document.addEventListener('DOMContentLoaded', () => {
         return true;
     }
 
-    // 處理下載
-    async function handleDownload() {
-        if (!validateInput(urlInput.value)) return;
+    // 時間格式驗證
+    function validateTimeFormat(time) {
+        return /^([0-5][0-9]):([0-5][0-9])$/.test(time);
+    }
 
-        try {
-            showStatus('正在處理您的請求...');
-            downloadBtn.disabled = true;
+    // 將時間轉換為秒數
+    function timeToSeconds(time) {
+        const [minutes, seconds] = time.split(':').map(Number);
+        return minutes * 60 + seconds;
+    }
 
-            console.log('發送下載請求:', urlInput.value);
-            const response = await fetch('/.netlify/functions/download', {
-                method: 'POST',
-                headers: {
-                    'Content-Type': 'application/json',
-                },
-                body: JSON.stringify({
-                    url: urlInput.value
-                })
-            });
+    // 驗證時間範圍
+    function validateTimeRange() {
+        const startTime = startTimeInput.value;
+        const endTime = endTimeInput.value;
 
-            const data = await response.json();
-
-            if (!response.ok) {
-                throw new Error(data.message || `請求失敗 (${response.status})`);
-            }
-
-            console.log('收到的回應:', data);
-
-            if (data.error) {
-                throw new Error(data.error);
-            }
-
-            if (data.downloadUrl) {
-                // 創建一個隱藏的下載連結
-                const downloadLink = document.createElement('a');
-                downloadLink.href = data.downloadUrl;
-                downloadLink.download = `${data.title}.${data.format}`;
-                document.body.appendChild(downloadLink);
-                downloadLink.click();
-                document.body.removeChild(downloadLink);
-                
-                showStatus('下載開始！');
-            } else {
-                throw new Error('無法獲取下載連結');
-            }
-        } catch (error) {
-            console.error('下載錯誤:', error);
-            showStatus(`錯誤：${error.message}`, true);
-        } finally {
-            downloadBtn.disabled = false;
+        if (!startTime || !endTime) return true;
+        if (!validateTimeFormat(startTime) || !validateTimeFormat(endTime)) {
+            statusDiv.textContent = '請輸入有效的時間格式（MM:SS）';
+            return false;
         }
+
+        const startSeconds = timeToSeconds(startTime);
+        const endSeconds = timeToSeconds(endTime);
+
+        if (startSeconds >= endSeconds) {
+            statusDiv.textContent = '結束時間必須大於開始時間';
+            return false;
+        }
+
+        return true;
     }
 
     // 獲取影片資訊
@@ -111,6 +97,9 @@ document.addEventListener('DOMContentLoaded', () => {
                 throw new Error(data.error);
             }
 
+            videoInfo = data;
+            
+            // 顯示影片信息
             videoInfoDiv.innerHTML = `
                 <div class="video-info-container">
                     <img src="${data.thumbnail}" alt="影片縮圖" class="video-thumbnail">
@@ -122,11 +111,72 @@ document.addEventListener('DOMContentLoaded', () => {
                 </div>
             `;
 
+            // 顯示時間範圍選擇
+            timeRangeContainer.classList.add('visible');
             showStatus('');
+            downloadBtn.disabled = false;
         } catch (error) {
             console.error('獲取影片信息錯誤:', error);
             videoInfoDiv.innerHTML = '';
             showStatus(`無法獲取影片資訊: ${error.message}`, true);
+            timeRangeContainer.classList.remove('visible');
+            downloadBtn.disabled = true;
+        }
+    }
+
+    // 處理下載
+    async function handleDownload() {
+        if (!validateTimeRange()) return;
+
+        try {
+            showStatus('正在處理您的請求...');
+            downloadBtn.disabled = true;
+
+            const downloadData = {
+                url: urlInput.value,
+                startTime: startTimeInput.value || '00:00',
+                endTime: endTimeInput.value || videoInfo.duration
+            };
+
+            console.log('發送下載請求:', downloadData);
+            const response = await fetch('/.netlify/functions/download', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                },
+                body: JSON.stringify(downloadData)
+            });
+
+            const data = await response.json();
+
+            if (!response.ok) {
+                throw new Error(data.message || `請求失敗 (${response.status})`);
+            }
+
+            console.log('收到的回應:', data);
+
+            if (data.error) {
+                throw new Error(data.error);
+            }
+
+            if (data.downloadUrl) {
+                // 創建一個隱藏的下載連結
+                const downloadLink = document.createElement('a');
+                downloadLink.href = data.downloadUrl;
+                downloadLink.download = `${videoInfo.title}.mp3`;
+                document.body.appendChild(downloadLink);
+                downloadLink.click();
+                document.body.removeChild(downloadLink);
+                
+                showStatus('下載開始！');
+            } else {
+                throw new Error('無法獲取下載連結');
+            }
+        } catch (error) {
+            console.error('下載錯誤:', error);
+            showStatus(`錯誤：${error.message}`, true);
+        } finally {
+            downloadBtn.disabled = false;
         }
     }
 
@@ -142,6 +192,25 @@ document.addEventListener('DOMContentLoaded', () => {
             timeout = setTimeout(later, wait);
         };
     }
+
+    // 事件監聽器
+    const debouncedGetVideoInfo = debounce(getVideoInfo, 500);
+    urlInput.addEventListener('input', debouncedGetVideoInfo);
+    downloadBtn.addEventListener('click', handleDownload);
+
+    // 當 URL 輸入框失去焦點時獲取影片信息
+    urlInput.addEventListener('blur', () => {
+        if (urlInput.value) {
+            getVideoInfo();
+        }
+    });
+
+    // 當按下 Enter 鍵時獲取影片信息
+    urlInput.addEventListener('keypress', (e) => {
+        if (e.key === 'Enter' && urlInput.value) {
+            getVideoInfo();
+        }
+    });
 
     // 添加樣式
     const style = document.createElement('style');
@@ -172,9 +241,4 @@ document.addEventListener('DOMContentLoaded', () => {
         }
     `;
     document.head.appendChild(style);
-
-    // 事件監聽器
-    const debouncedGetVideoInfo = debounce(getVideoInfo, 500);
-    urlInput.addEventListener('input', debouncedGetVideoInfo);
-    downloadBtn.addEventListener('click', handleDownload);
 }); 
