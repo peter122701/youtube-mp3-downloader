@@ -18,20 +18,38 @@ exports.handler = async function(event, context) {
   }
 
   try {
+    console.log('收到請求:', { 
+      httpMethod: event.httpMethod,
+      body: event.body,
+      headers: event.headers 
+    });
+
     if (event.httpMethod !== 'POST') {
       throw new Error('只允許 POST 請求');
     }
 
-    const { url } = JSON.parse(event.body);
+    let parsedBody;
+    try {
+      parsedBody = JSON.parse(event.body);
+      console.log('解析的請求體:', parsedBody);
+    } catch (e) {
+      throw new Error('無效的 JSON 格式: ' + e.message);
+    }
+
+    const { url } = parsedBody;
     
     if (!url) {
       throw new Error('未提供 URL');
     }
 
+    console.log('處理 URL:', url);
+
     // 驗證 YouTube URL
     if (!ytdl.validateURL(url)) {
       throw new Error('無效的 YouTube URL');
     }
+
+    console.log('開始獲取影片信息...');
 
     // 使用基本選項獲取影片信息
     const info = await ytdl.getBasicInfo(url, {
@@ -44,6 +62,8 @@ exports.handler = async function(event, context) {
       }
     });
 
+    console.log('成功獲取影片信息');
+
     const videoDetails = info.videoDetails;
     
     // 構建基本響應
@@ -54,6 +74,8 @@ exports.handler = async function(event, context) {
       author: videoDetails.author?.name || '未知作者'
     };
 
+    console.log('準備返回的響應:', response);
+
     return {
       statusCode: 200,
       headers,
@@ -61,13 +83,24 @@ exports.handler = async function(event, context) {
     };
 
   } catch (error) {
-    console.error('Error:', error);
+    console.error('詳細錯誤信息:', {
+      name: error.name,
+      message: error.message,
+      stack: error.stack,
+      code: error.code
+    });
+
+    // 根據錯誤類型返回不同的狀態碼
+    const statusCode = error.message.includes('無效') ? 400 : 500;
+
     return {
-      statusCode: 500,
+      statusCode,
       headers,
       body: JSON.stringify({
         error: '處理請求時發生錯誤',
-        message: error.message
+        message: error.message,
+        type: error.name,
+        code: error.code
       })
     };
   }
