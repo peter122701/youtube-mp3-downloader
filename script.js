@@ -11,10 +11,20 @@ document.addEventListener('DOMContentLoaded', () => {
         console.log(`狀態更新: ${message} (${isError ? '錯誤' : '成功'})`);
     }
 
+    // 清除影片信息
+    function clearVideoInfo() {
+        videoInfoDiv.innerHTML = '';
+        showStatus('');
+    }
+
     // 驗證輸入
-    function validateInputs() {
-        if (!urlInput.value) {
+    function validateInput(url) {
+        if (!url) {
             showStatus('請輸入 YouTube 影片網址', true);
+            return false;
+        }
+        if (!url.includes('youtube.com/watch?v=') && !url.includes('youtu.be/')) {
+            showStatus('請輸入有效的 YouTube 影片網址', true);
             return false;
         }
         return true;
@@ -22,7 +32,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
     // 處理下載
     async function handleDownload() {
-        if (!validateInputs()) return;
+        if (!validateInput(urlInput.value)) return;
 
         try {
             showStatus('正在處理您的請求...');
@@ -39,12 +49,12 @@ document.addEventListener('DOMContentLoaded', () => {
                 })
             });
 
+            const data = await response.json();
+
             if (!response.ok) {
-                const errorData = await response.json();
-                throw new Error(errorData.error || `HTTP error! status: ${response.status}`);
+                throw new Error(data.message || `請求失敗 (${response.status})`);
             }
 
-            const data = await response.json();
             console.log('收到的回應:', data);
 
             if (data.error) {
@@ -72,9 +82,10 @@ document.addEventListener('DOMContentLoaded', () => {
         }
     }
 
-    // 當 URL 輸入改變時獲取影片資訊
+    // 獲取影片資訊
     async function getVideoInfo() {
-        if (!urlInput.value) return;
+        clearVideoInfo();
+        if (!validateInput(urlInput.value)) return;
 
         try {
             console.log('獲取影片信息:', urlInput.value);
@@ -88,12 +99,12 @@ document.addEventListener('DOMContentLoaded', () => {
                 })
             });
 
+            const data = await response.json();
+
             if (!response.ok) {
-                const errorData = await response.json();
-                throw new Error(errorData.error || `HTTP error! status: ${response.status}`);
+                throw new Error(data.message || `請求失敗 (${response.status})`);
             }
 
-            const data = await response.json();
             console.log('收到的影片信息:', data);
 
             if (data.error) {
@@ -101,11 +112,17 @@ document.addEventListener('DOMContentLoaded', () => {
             }
 
             videoInfoDiv.innerHTML = `
-                <h3>影片資訊：</h3>
-                <p>標題：${data.title}</p>
-                <p>時長：${data.duration}</p>
-                <img src="${data.thumbnail}" alt="影片縮圖" style="max-width: 200px;">
+                <div class="video-info-container">
+                    <img src="${data.thumbnail}" alt="影片縮圖" class="video-thumbnail">
+                    <div class="video-details">
+                        <h3>${data.title}</h3>
+                        <p>作者：${data.author}</p>
+                        <p>時長：${data.duration}</p>
+                    </div>
+                </div>
             `;
+
+            showStatus('');
         } catch (error) {
             console.error('獲取影片信息錯誤:', error);
             videoInfoDiv.innerHTML = '';
@@ -125,6 +142,36 @@ document.addEventListener('DOMContentLoaded', () => {
             timeout = setTimeout(later, wait);
         };
     }
+
+    // 添加樣式
+    const style = document.createElement('style');
+    style.textContent = `
+        .video-info-container {
+            display: flex;
+            align-items: start;
+            gap: 20px;
+            margin-top: 20px;
+            padding: 15px;
+            border-radius: 8px;
+            background-color: #f8f9fa;
+        }
+        .video-thumbnail {
+            width: 200px;
+            border-radius: 4px;
+        }
+        .video-details {
+            flex: 1;
+        }
+        .video-details h3 {
+            margin: 0 0 10px 0;
+            color: #1a73e8;
+        }
+        .video-details p {
+            margin: 5px 0;
+            color: #5f6368;
+        }
+    `;
+    document.head.appendChild(style);
 
     // 事件監聽器
     const debouncedGetVideoInfo = debounce(getVideoInfo, 500);
