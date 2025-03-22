@@ -7,6 +7,10 @@
     "build": "npm install"
   },
   "dependencies": {
-    "ytdl-core": "^4.9.1"
+    "ytdl-core": "^4.9.1",
+    "https": "^1.0.0"
+  },
+  "engines": {
+    "node": ">=16.0.0"
   }
 } 
