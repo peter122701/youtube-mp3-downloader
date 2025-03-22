@@ -1,4 +1,5 @@
 const ytdl = require('ytdl-core');
+const https = require('https');
 
 exports.handler = async function(event, context) {
   // 添加 CORS 標頭
@@ -7,6 +8,23 @@ exports.handler = async function(event, context) {
     'Access-Control-Allow-Headers': 'Content-Type',
     'Access-Control-Allow-Methods': 'POST, OPTIONS'
   };
+
+  // 基本連接測試
+  async function testYouTubeConnection() {
+    return new Promise((resolve, reject) => {
+      https.get('https://www.youtube.com', {
+        headers: {
+          'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36'
+        }
+      }, (res) => {
+        console.log('YouTube 響應狀態碼:', res.statusCode);
+        resolve(res.statusCode === 200);
+      }).on('error', (err) => {
+        console.error('連接測試錯誤:', err);
+        reject(err);
+      });
+    });
+  }
 
   // 處理 OPTIONS 請求
   if (event.httpMethod === 'OPTIONS') {
@@ -17,15 +35,24 @@ exports.handler = async function(event, context) {
     };
   }
 
-  if (event.httpMethod !== 'POST') {
-    return {
-      statusCode: 405,
-      headers,
-      body: JSON.stringify({ error: '只允許 POST 請求' })
-    };
-  }
-
   try {
+    // 先測試連接
+    console.log('開始測試 YouTube 連接...');
+    const canAccessYouTube = await testYouTubeConnection();
+    console.log('YouTube 連接測試結果:', canAccessYouTube);
+
+    if (!canAccessYouTube) {
+      throw new Error('無法連接到 YouTube');
+    }
+
+    if (event.httpMethod !== 'POST') {
+      return {
+        statusCode: 405,
+        headers,
+        body: JSON.stringify({ error: '只允許 POST 請求' })
+      };
+    }
+
     console.log('接收到的請求體:', event.body);
     const { url } = JSON.parse(event.body);
 
@@ -50,7 +77,13 @@ exports.handler = async function(event, context) {
 
     console.log('開始獲取影片信息');
     // 獲取影片信息
-    const info = await ytdl.getInfo(url);
+    const info = await ytdl.getInfo(url, {
+      requestOptions: {
+        headers: {
+          'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36'
+        }
+      }
+    });
     console.log('成功獲取影片信息');
     
     const videoDetails = info.videoDetails;
@@ -64,7 +97,8 @@ exports.handler = async function(event, context) {
     const response = {
       title: videoDetails.title,
       duration: duration,
-      thumbnail: videoDetails.thumbnails[0].url
+      thumbnail: videoDetails.thumbnails[0].url,
+      connectionTest: 'success'
     };
 
     console.log('返回的數據:', response);
@@ -82,7 +116,8 @@ exports.handler = async function(event, context) {
       headers,
       body: JSON.stringify({ 
         error: '處理請求時發生錯誤',
-        details: error.message
+        details: error.message,
+        connectionTest: 'failed'
       })
     };
   }
