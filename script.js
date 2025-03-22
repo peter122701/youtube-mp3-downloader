@@ -83,7 +83,16 @@ document.addEventListener('DOMContentLoaded', () => {
 
         const startSeconds = timeToSeconds(startTime);
         const endSeconds = timeToSeconds(endTime);
-        const totalSeconds = timeToSeconds(videoInfo.duration);
+        const totalSeconds = timeToSeconds(convertDurationToMMSS(videoInfo.duration));
+
+        console.log('時間驗證:', {
+            startTime,
+            endTime,
+            videoDuration: videoInfo.duration,
+            startSeconds,
+            endSeconds,
+            totalSeconds
+        });
 
         if (startSeconds >= endSeconds) {
             statusDiv.textContent = '結束時間必須大於開始時間';
